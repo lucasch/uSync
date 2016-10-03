@@ -50,13 +50,13 @@ namespace Jumoo.uSync.Core.Serializers
         {
             // pre import
             var mappedNode = DeserializeGetMappedValues(node);
-            Guid key = node.Attribute("Key").ValueOrDefault(Guid.Empty);
+            Guid key = mappedNode.Attribute("Key").ValueOrDefault(Guid.Empty);
 
-            var name = node.Attribute("Name").ValueOrDefault(string.Empty);
-            var editorAlias = node.Attribute("Id").ValueOrDefault(string.Empty);
-            var dbType = node.Attribute("DatabaseType").ValueOrDefault(string.Empty);
+            var name = mappedNode.Attribute("Name").ValueOrDefault(string.Empty);
+            var editorAlias = mappedNode.Attribute("Id").ValueOrDefault(string.Empty);
+            var dbType = mappedNode.Attribute("DatabaseType").ValueOrDefault(string.Empty);
             var databaseType = !string.IsNullOrEmpty(dbType) ? dbType.EnumParse<DataTypeDatabaseType>(true) : DataTypeDatabaseType.Ntext;
-            var folder = node.Attribute("Folder").ValueOrDefault(string.Empty);
+            var folder = mappedNode.Attribute("Folder").ValueOrDefault(string.Empty);
 
             var folderId = -1;
             if (!string.IsNullOrEmpty(folder))
@@ -101,7 +101,7 @@ namespace Jumoo.uSync.Core.Serializers
 
                 _dataTypeService.Save(item);
 
-                DeserializeUpdatePreValues(item, node);
+                DeserializeUpdatePreValues(item, mappedNode);
             }
 
 

@@ -27,7 +27,8 @@ namespace Jumoo.uSync.Core.Serializers
         // 
         private List<IContentType> _allContentTypes;
         private List<IMediaType> _allMediaTypes;
-
+        protected bool _removeProperties;
+        public bool RemoveProperties { get {return _removeProperties;} set { _removeProperties = value; } }
 
         public ContentTypeBaseSerializer(string itemType): base(itemType)
         {
@@ -325,26 +326,28 @@ namespace Jumoo.uSync.Core.Serializers
 
 
             // look at what properties we need to remove. 
-            var propertyNodes = node.Elements("GenericProperties").Elements("GenericProperty");
-            foreach(var property in item.PropertyTypes)
-            {
-                XElement propertyNode = propertyNodes
-                                            .FirstOrDefault(x=> x.Element("key") != null && x.Element("Key").Value == property.Key.ToString());
+            if (RemoveProperties)
+	            {
+	            var propertyNodes = node.Elements("GenericProperties").Elements("GenericProperty");
+	            foreach(var property in item.PropertyTypes)
+	            {
+	                XElement propertyNode = propertyNodes
+	                                            .FirstOrDefault(x=> x.Element("key") != null && x.Element("Key").Value == property.Key.ToString());
 
-                if (propertyNode == null)
-                {
-                    LogHelper.Debug<uSync.Core.Events>("Remove Check: Looking up property type by alias {0} to stop accedental removal", ()=> property.Alias);
-                    propertyNode = propertyNodes
-                        .SingleOrDefault(x => x.Element("Alias").Value == property.Alias);
-                }
+	                if (propertyNode == null)
+	                {
+	                    LogHelper.Debug<uSync.Core.Events>("Remove Check: Looking up property type by alias {0} to stop accedental removal", ()=> property.Alias);
+	                    propertyNode = propertyNodes
+	                        .SingleOrDefault(x => x.Element("Alias").Value == property.Alias);
+	                }
 
-                if (propertyNode == null)
-                {
-                    LogHelper.Debug<uSync.Core.Events>("Removing Property: (no match on system) {0}", () => property.Alias);
-                    propertiesToRemove.Add(property.Alias);
-                }
+	                if (propertyNode == null)
+	                {
+	                    LogHelper.Debug<uSync.Core.Events>("Removing Property: (no match on system) {0}", () => property.Alias);
+	                    propertiesToRemove.Add(property.Alias);
+	                }
+	            }
             }
-
 
             // now we have gone through all the properties, we can do the moves and removes from the groups
             if (propertiesToMove.Any())
@@ -356,7 +359,7 @@ namespace Jumoo.uSync.Core.Serializers
                 }
             }
 
-            if (propertiesToRemove.Any())
+            if (RemoveProperties && propertiesToRemove.Any())
             {
                 // removing properties can cause timeouts on installs with lots of content...
                 foreach(var delete in propertiesToRemove)

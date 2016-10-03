@@ -51,9 +51,11 @@ namespace Jumoo.uSync.Core.Helpers
         {
             bool isMapped = false;
 
-            var ids = GetValueMatchSubstring(value);
+            var ids = GetValueMatchSubstrings(value);
             
-            foreach (Match match in Regex.Matches(ids, _settings.IdRegex))
+            foreach (var i in ids)
+            {
+                foreach (Match match in Regex.Matches(i, _settings.IdRegex))
             {
                 string mappingType = _settings.MappingType.ToLower();
                 string id = match.Value;
@@ -73,11 +75,14 @@ namespace Jumoo.uSync.Core.Helpers
                         case "tab":
                             mappedValue = TabToGeneric(id);
                             break;
-                        case "mediaType":
+                        case "mediatype":
                             mappedValue = MediaTypeToGeneric(id);
                             break;
-                        case "docType":
+                        case "doctype":
                             mappedValue = ContentTypeToGeneric(id);
+                            break;
+                        case "datatype":
+                            mappedValue = DataTypeToGeneric(id);
                             break;
                     }
 
@@ -89,31 +94,32 @@ namespace Jumoo.uSync.Core.Helpers
                     }
                 }
             }
-
+            }
             return isMapped;
         }
 
-        private string GetValueMatchSubstring(string value)
+        private IEnumerable<string> GetValueMatchSubstrings(string value)
         {
-
+            var retval = new List<string>();
             switch(_settings.ValueStorageType.ToLower())
             {
                 case "json":
                     LogHelper.Debug<uSyncValueMapper>("Mapping Alias: {1} Value: {0}", () => value, ()=> _settings.ValueAlias);
                     if (!string.IsNullOrEmpty(_settings.PropertyName) && IsJson(value))
                     {
-                        JObject jObject = JObject.Parse(value);
-
-                        if (jObject != null )
+                        if (IsJsonArray(value))
                         {
-                            var propertyValue = jObject.SelectToken(_settings.PropertyName);
-                            if (propertyValue != null)
-                                return propertyValue.ToString(Newtonsoft.Json.Formatting.None);
+                            JArray jA = JArray.Parse(value);
+                            foreach (var jObject in jA)
+                            {
+                                retval.Add(GetValue(jObject.ToString()));
+                            }
                         }
                         else
                         {
-                            LogHelper.Warn<uSyncValueMapper>("Mapping JSON Couldn't parse : {0}", ()=> value);
+                            retval.Add(GetValue(value));
                         }
+                        return retval;
                     }
                     break;
                 case "number":
@@ -126,14 +132,29 @@ namespace Jumoo.uSync.Core.Helpers
                             var props = value.Split(_settings.PropertySplitter);
                             if (props.Count() >= _settings.PropertyPosistion)
                             {
-                                return props[_settings.PropertyPosistion - 1];
+                                retval.Add(props[_settings.PropertyPosistion - 1]);
                             }
                         }
-
+                        return retval;
                     }
                     break;
             }
 
+            return new [] {value};
+        }
+        private string GetValue(string value)
+        {
+            var jObject = JObject.Parse(value);
+            if (jObject != null)
+            {
+                var propertyValue = jObject.SelectToken(_settings.PropertyName);
+                if (propertyValue != null)
+                    return propertyValue.ToString(Newtonsoft.Json.Formatting.None);
+            }
+            else
+            {
+                LogHelper.Warn<uSyncValueMapper>("Mapping JSON Couldn't parse : {0}", () => value);
+            }
             return value;
         }
 
@@ -142,6 +163,11 @@ namespace Jumoo.uSync.Core.Helpers
             val = val.Trim();
             return (val.StartsWith("{") && val.EndsWith("}"))
                 || (val.StartsWith("[") && val.EndsWith("]"));
+        }
+        private bool IsJsonArray(string val)
+        {
+            val = val.Trim();
+            return (val.StartsWith("[") && val.EndsWith("]"));
         }
 
         private void AddToNode(string id, string value, string type, int mapId)
@@ -216,6 +242,17 @@ namespace Jumoo.uSync.Core.Helpers
 
             return string.Empty;
         }
+        private string DataTypeToGeneric(string id)
+        {
+            int typeId;
+            if (int.TryParse(id, out typeId))
+            {
+                var item = ApplicationContext.Current.Services.DataTypeService.GetDataTypeDefinitionById(typeId);
+                if (item != null)
+                    return item.Key.ToString();
+            }
+            return string.Empty;
+        }
 
         private string TabToGeneric(string id)
         {
@@ -254,8 +291,9 @@ namespace Jumoo.uSync.Core.Helpers
                 var val = mapNode.Attribute("Value").Value;
                 var id = mapNode.Attribute("Id").Value;
 
-                var valueSubString = GetValueMatchSubstring(value);
-
+                var valueSubStrings = GetValueMatchSubstrings(value);
+                foreach (var valueSubString in valueSubStrings)
+                {
                 var localId = GetMappedId(id, val, type);
 
                 // all the zz swapping here, to stop false positives...
@@ -276,6 +314,7 @@ namespace Jumoo.uSync.Core.Helpers
                 var targetSubString = mapRegEx.Replace(valueSubString, localId);
 
                 value = value.Replace(valueSubString, targetSubString);
+                }
             }
 
             return CleanValue(value);
@@ -295,6 +334,8 @@ namespace Jumoo.uSync.Core.Helpers
                     return MediaTypeToId(id, value);
                 case "doctype":
                     return ContentTypeToId(id, value);
+                case "datatype":
+                    return DataTypeToId(id, value);
             }
 
             return id;
@@ -333,6 +374,18 @@ namespace Jumoo.uSync.Core.Helpers
             if (Guid.TryParse(value, out itemKey))
             {
                 var item = ApplicationContext.Current.Services.ContentTypeService.GetContentType(itemKey);
+                if (item != null)
+                    return item.Id.ToString();
+            }
+            return id;
+        }
+
+        private string DataTypeToId(string id, string value)
+        {
+            var itemKey = Guid.Empty;
+            if (Guid.TryParse(value, out itemKey))
+            {
+                var item = ApplicationContext.Current.Services.DataTypeService.GetDataTypeDefinitionById(itemKey);
                 if (item != null)
                     return item.Id.ToString();
             }

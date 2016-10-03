@@ -71,7 +71,8 @@ namespace Jumoo.uSync.Core.Mappers
 
                 foreach(var alias in values)
                 {
-                    string preValue = prevalues.Where(kvp => kvp.Key == alias)
+					// TODO: is this or necessary or is it a relic of troubleshooting?
+                    string preValue = prevalues.Where(kvp => kvp.Key == alias || kvp.Value.Value==alias)
                                         .Select(kvp => kvp.Value.Id.ToString())
                                         .SingleOrDefault();
 
